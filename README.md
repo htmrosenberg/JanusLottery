@@ -1,14 +1,22 @@
-## Foundry
+# Janus Lottery Contract
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Author
+Harold Rosenberg
 
-Foundry consists of:
+## Overview
+The Janus Lottery contract facilitates a unique lottery system with two main participants: **Jackpot Funders** and **Ticket Buyers**.
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+### Phases
+1. **Jackpot Funding Phase**: 
+   - Funders compete to offer the best jackpot.
+   - Each jackpot offer includes the total amount, winning chance, ticket price, and selling period.
 
+2. **Ticket Buying Phase**: 
+   - Participants purchase tickets for a chance to win the jackpot.
+   - If no one wins, the funder receives the ticket sales.
+
+### Additional Details
+- The contract owner receives a fee from the proceedings.
 ## Documentation
 
 https://book.getfoundry.sh/

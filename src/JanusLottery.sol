@@ -376,4 +376,42 @@ contract JanusLottery {
     function getTotalTicketsSale() public view returns(uint256) {
         return s_tickets_total_amount;
     }
+
+    function getOwner() public view returns(address) {
+        return s_owner;
+    }
+
+    function getFeePromille() public view returns(uint16) {
+        return i_promille_fee;
+    }
+
+    function getFundingPeriodHours() public view returns(uint16) {
+        return i_funding_period_hours;
+    }
+
+    function getMinimumSellingPeriodHours() public view returns(uint16) {
+        return i_minimum_selling_period_hours;
+    }
+
+    function getMaximumSellingPeriodHours() public view returns(uint16) {
+        return i_maximum_selling_period_hours;
+    }
+
+    function getMinimumJackotPot() public view returns(uint256) {
+        return i_minimum_jackpot;
+    }
+
+    function isFunding() public view returns(bool) {
+        return s_state == JanusState.JACKPOT_FUNDING;
+    }
+
+    function isSelling() public view returns(bool) {
+        return s_state == JanusState.TICKET_SELLING;
+    }
+
+    function isCalculating() public view returns(bool) {
+        return s_state == JanusState.CALCULATION;
+    }
+
+
 }

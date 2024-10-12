@@ -5,19 +5,64 @@ import {Test, console} from "forge-std/Test.sol";
 import {JanusLottery} from "../src/JanusLottery.sol";
 
 contract JanusLotteryTest is Test {
-    JanusLottery public janusLottery;
 
-    function setUp() public {
-        janusLottery = new JanusLottery(0,0,0,0,0);
+    uint16 constant Zero_Hours = 0;
+    uint16 constant One_Hour = 1;
+    uint16 constant Two_Hours = 2;
+    uint256 constant One_ETH = 1 ether;
+    uint256 constant Zero_ETH = 0 ether;
+    uint16 constant Promille_999 = 999;
+    uint16 constant Promille_1000 = 1000;
+    
+
+    function test_DeploymentInvalidFee() public {
+        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
+        new JanusLottery(One_Hour,One_Hour,One_Hour,One_ETH,Promille_1000);
     }
 
- /*   function test_Increment() public {
-        janusLottery.increment();
-        assertEq(janusLottery.number(), 1);
+    function test_DeploymentInvalidMinimumJackpot() public {
+        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
+        new JanusLottery(One_Hour,One_Hour,One_Hour,Zero_ETH,Promille_999);
     }
 
-    function testFuzz_SetNumber(uint256 x) public {
-        janusLottery.setNumber(x);
-        assertEq(janusLottery.number(), x);
-    }*/
+    function test_DeploymentInvalidFundingPeriod() public {
+        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
+        new JanusLottery(One_Hour,One_Hour,Zero_Hours,One_ETH,Promille_999);
+    }
+
+    function test_DeploymentInvalidMinimumSellingPeriod() public {
+        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
+        new JanusLottery(Zero_Hours,One_Hour,One_Hour,One_ETH,Promille_999);
+    }
+
+
+    function test_DeploymentInvalidMaximumSellingPeriod() public {
+        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
+        new JanusLottery(   Two_Hours,
+                            One_Hour,
+                            One_Hour,
+                            One_ETH,
+                            Promille_999);
+    }
+
+    function test_DeploymentCorrect() public {
+        JanusLottery janusLottery = new JanusLottery(   
+            One_Hour,
+            Two_Hours,
+            One_Hour,
+            One_ETH,
+            Promille_999);
+        
+        assertEq(janusLottery.getOwner(),address(this));
+        assertEq(janusLottery.getFeePromille(),Promille_999);
+        assertEq(janusLottery.getFundingPeriodHours(),One_Hour);
+        assertEq(janusLottery.getFundingPeriodHours(),One_Hour);
+        assertEq(janusLottery.getMinimumSellingPeriodHours(),One_Hour);
+        assertEq(janusLottery.getMaximumSellingPeriodHours(),Two_Hours);
+        assertEq(janusLottery.getMinimumJackotPot(),One_ETH);
+        assert(janusLottery.isFunding());
+    }
+
+ 
+
 }

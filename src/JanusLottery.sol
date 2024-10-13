@@ -84,7 +84,7 @@ contract JanusLottery {
 
     event TicketSaleOpened();
     event TicketSold(address indexed player, uint256 price);
-    event JackPotOffered(address indexed funder, uint256 amount, uint ticketPrice, uint32 maximum_tickets, uint16 selling_period_hours);
+    event JackPotOfferAccepted(address indexed funder, uint256 amount, uint ticketPrice, uint32 maximum_tickets, uint16 selling_period_hours);
     event TicketWon(address indexed player, uint256 price);
     event FunderWon(address indexed funder, uint256 price);
 
@@ -193,6 +193,9 @@ contract JanusLottery {
         uint256 jackPotIndicator = msg.value / maximum_tickets;
         uint256 currentIndicator = s_jackpot_indicator;
 
+        uint256 refund_amount = 0;
+        address payable previous_funder;
+
         //Is there already an offer?
         //yes, then compare
         if (s_funder != address(0)) {
@@ -202,11 +205,15 @@ contract JanusLottery {
                  s_selling_period_hours > selling_period_hours) ||
                 (jackPotIndicator == currentIndicator && 
                  s_selling_period_hours == selling_period_hours && 
-                 ticketPrice > s_ticket_price)) {
+                 ticketPrice >= s_ticket_price)) {
                 
                 //worse offer
                 revert JanusLottery__OfferRejected();
             }
+
+            //remember to refund former funder
+            refund_amount = s_jackpot;
+            previous_funder = s_funder;
         }
 
         s_jackpot_indicator = jackPotIndicator;
@@ -216,7 +223,14 @@ contract JanusLottery {
         s_selling_period_hours = selling_period_hours;
         s_ticket_price = ticketPrice;
 
-        emit JackPotOffered(msg.sender, msg.value, ticketPrice, maximum_tickets, selling_period_hours);
+        emit JackPotOfferAccepted(msg.sender, msg.value, ticketPrice, maximum_tickets, selling_period_hours);
+
+        if (refund_amount > 0) {
+            (bool successFee,) = previous_funder.call{value: refund_amount}("");
+            if (!successFee) {
+                revert JanusLottery__TransferFailed();
+            }
+        }
 
     }
 
@@ -302,6 +316,14 @@ contract JanusLottery {
         s_state = JanusState.JACKPOT_FUNDING;
         s_winners.push(winner);
 
+        if (ticket_amount > 0) {
+            emit TicketWon(ticket_holder,ticket_amount);
+        }
+
+        if (ticket_amount > 0) {
+            emit FunderWon(funder,funder_amount);
+        }
+
         (bool successFunder,) = funder.call{value: funder_amount}("");
         if (!successFunder) {
             revert JanusLottery__TransferFailed();
@@ -319,14 +341,6 @@ contract JanusLottery {
             if (!successFee) {
                 revert JanusLottery__TransferFailed();
             }
-        }
-
-        if (ticket_amount > 0) {
-            emit TicketWon(ticket_holder,ticket_amount);
-        }
-
-        if (ticket_amount > 0) {
-            emit FunderWon(funder,funder_amount);
         }
 
     }

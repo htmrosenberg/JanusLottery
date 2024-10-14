@@ -143,6 +143,10 @@ contract JanusLotteryTest is Test {
             One_ETH,
             Promille_999);
 
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.JackPotOfferAccepted(address(this), One_ETH, One_Gwei, Thousand_Tickets, Two_Hours);
+
+
         janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
 
         assertEq(janusLottery.getFunder(), address(this));
@@ -227,12 +231,18 @@ contract JanusLotteryTest is Test {
 
         vm.deal(first_funder, 2 ether);
         vm.deal(second_funder, 3 ether);
-        
+
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.JackPotOfferAccepted(first_funder, One_ETH, One_Gwei, Hundred_Tickets, Two_Hours);
+
         vm.prank(first_funder);
         janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Hundred_Tickets, Two_Hours);
 
         assertEq(first_funder.balance, 1 ether);
         assertEq(address(janusLottery).balance, 1 ether);
+
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.JackPotOfferAccepted(second_funder, Two_ETH, One_Gwei, Hundred_Tickets, Two_Hours);
 
         vm.prank(second_funder);
         janusLottery.jackPotOffer{value: Two_ETH}(One_Gwei, Hundred_Tickets, Two_Hours);
@@ -245,5 +255,115 @@ contract JanusLotteryTest is Test {
         assertEq(janusLottery.getJackpot(), Two_ETH);
     }
 
+ function testAcceptLongerJackpotOffer() public  {
+        JanusLottery janusLottery = new JanusLottery(   
+            One_Hour,
+            One_Day,
+            One_Hour,
+            One_ETH,
+            Promille_999);
 
+        address first_funder = address(0x1);
+        address second_funder = address(0x2);
+
+        vm.deal(first_funder, 2 ether);
+        vm.deal(second_funder, 3 ether);
+
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.JackPotOfferAccepted(first_funder, One_ETH, One_Gwei, Hundred_Tickets, One_Hour);
+
+        vm.prank(first_funder);
+        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Hundred_Tickets, One_Hour);
+
+        assertEq(first_funder.balance, 1 ether);
+        assertEq(address(janusLottery).balance, 1 ether);
+
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.JackPotOfferAccepted(second_funder, One_ETH, One_Gwei, Hundred_Tickets, Two_Hours);
+
+        vm.prank(second_funder);
+        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Hundred_Tickets, Two_Hours);
+
+        assertEq(first_funder.balance, 2 ether);
+        assertEq(second_funder.balance, 2 ether);
+        assertEq(address(janusLottery).balance, 1 ether);
+
+        assertEq(janusLottery.getFunder(), second_funder);
+        assertEq(janusLottery.getJackpot(), One_ETH);
+    }
+
+ function testAcceptCheaperJackpotOffer() public  {
+        JanusLottery janusLottery = new JanusLottery(   
+            One_Hour,
+            One_Day,
+            One_Hour,
+            One_ETH,
+            Promille_999);
+
+        address first_funder = address(0x1);
+        address second_funder = address(0x2);
+
+        vm.deal(first_funder, 2 ether);
+        vm.deal(second_funder, 3 ether);
+
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.JackPotOfferAccepted(first_funder, One_ETH, One_Gwei, Hundred_Tickets, Two_Hours);
+
+        vm.prank(first_funder);
+        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Hundred_Tickets, Two_Hours);
+
+        assertEq(first_funder.balance, 1 ether);
+        assertEq(address(janusLottery).balance, 1 ether);
+
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.JackPotOfferAccepted(second_funder, One_ETH, One_Wei, Hundred_Tickets, Two_Hours);
+
+        vm.prank(second_funder);
+        janusLottery.jackPotOffer{value: One_ETH}(One_Wei, Hundred_Tickets, Two_Hours);
+
+        assertEq(first_funder.balance, 2 ether);
+        assertEq(second_funder.balance, 2 ether);
+        assertEq(address(janusLottery).balance, 1 ether);
+        assertEq(janusLottery.getTicketPrice(), One_Wei);
+        assertEq(janusLottery.getFunder(), second_funder);
+        assertEq(janusLottery.getJackpot(), One_ETH);
+    }
+
+
+    function testAcceptBetterChanceJackpotOffer() public  {
+        JanusLottery janusLottery = new JanusLottery(   
+            One_Hour,
+            One_Day,
+            One_Hour,
+            One_ETH,
+            Promille_999);
+
+        address first_funder = address(0x1);
+        address second_funder = address(0x2);
+
+        vm.deal(first_funder, 2 ether);
+        vm.deal(second_funder, 3 ether);
+        
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.JackPotOfferAccepted(first_funder, One_ETH, One_Gwei, Thousand_Tickets, Two_Hours);
+
+        vm.prank(first_funder);
+        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
+
+        assertEq(first_funder.balance, 1 ether);
+        assertEq(address(janusLottery).balance, 1 ether);
+
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.JackPotOfferAccepted(second_funder, One_ETH, One_Gwei, Hundred_Tickets, Two_Hours);
+
+        vm.prank(second_funder);
+        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Hundred_Tickets, Two_Hours);
+
+        assertEq(first_funder.balance, 2 ether);
+        assertEq(second_funder.balance, 2 ether);
+        assertEq(address(janusLottery).balance, 1 ether);
+        assertEq(janusLottery.getTicketPrice(), One_Gwei);
+        assertEq(janusLottery.getFunder(), second_funder);
+        assertEq(janusLottery.getJackpot(), One_ETH);
+    }
 }

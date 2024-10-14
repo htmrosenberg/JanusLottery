@@ -365,5 +365,6 @@ contract JanusLotteryTest is Test {
         assertEq(janusLottery.getTicketPrice(), One_Gwei);
         assertEq(janusLottery.getFunder(), second_funder);
         assertEq(janusLottery.getJackpot(), One_ETH);
+        
     }
 }

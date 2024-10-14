@@ -21,6 +21,8 @@ Functions */
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/v0.8/dev/vrf/VRFConsumerBaseV2Plus.sol";
+
 /**
  * @title Janus Lottery contract
  * @author Harold Rosenberg
@@ -33,7 +35,7 @@ pragma solidity ^0.8.28;
  * @dev This implements the Chainlink VRF Version 2
  */
 
-contract JanusLottery {
+contract JanusLottery is VRFConsumerBaseV2Plus {
 
     /** Type declarations */
 
@@ -144,7 +146,8 @@ contract JanusLottery {
                 uint16 maximum_selling_period_hours, 
                 uint16 funding_period_hours, 
                 uint256 minimum_jackpot, 
-                uint16 promille_fee) {
+                uint16 promille_fee,
+                address vrfCoordinator) VRFConsumerBaseV2Plus(vrfCoordinator) {
 
         if (minimum_selling_period_hours < 1 ||
             minimum_selling_period_hours > maximum_selling_period_hours ||
@@ -161,6 +164,11 @@ contract JanusLottery {
         i_minimum_jackpot = minimum_jackpot;
         s_owner = msg.sender;
         s_state = JanusState.JACKPOT_FUNDING;
+    }
+
+
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+        
     }
 
     /** Payables */

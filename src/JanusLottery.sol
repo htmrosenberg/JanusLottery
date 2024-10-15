@@ -21,7 +21,12 @@ Functions */
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/v0.8/dev/vrf/VRFConsumerBaseV2Plus.sol";
+//Chainlink Automation
+import {AutomationCompatibleInterface} from "@chainlink/contracts/v0.8/automation/AutomationCompatible.sol";
+
+//Chainlink VRF
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
 /**
  * @title Janus Lottery contract
@@ -35,7 +40,7 @@ import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/v0.8/dev/vrf/VRFConsum
  * @dev This implements the Chainlink VRF Version 2
  */
 
-contract JanusLottery is VRFConsumerBaseV2Plus {
+contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     /** Type declarations */
 
@@ -64,6 +69,20 @@ contract JanusLottery is VRFConsumerBaseV2Plus {
 
 
     /** State variables */
+
+    // Chainlink VRF Variables
+    uint256 private immutable i_subscriptionId;
+    bytes32 private immutable i_gasLane;
+    uint32 private immutable i_callbackGasLimit;
+    bytes32 private immutable i_keyHash;
+    uint16 private constant REQUEST_CONFIRMATIONS = 3;
+    uint32 private constant NUM_WORDS = 1;
+
+    // Chainlink Automation
+    uint256 private immutable i_interval;
+    uint256 private lastTimeStamp;
+
+    // Janus Lottery Variables
     uint256 private immutable i_minimum_jackpot;
     uint16 private immutable i_funding_period_hours;
     uint16 private immutable i_minimum_selling_period_hours;
@@ -89,6 +108,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus {
     event JackPotOfferAccepted(address indexed funder, uint256 amount, uint ticketPrice, uint32 maximum_tickets, uint16 selling_period_hours);
     event TicketWon(address indexed player, uint256 price);
     event FunderWon(address indexed funder, uint256 price);
+    event RequestedRandomNumber(uint256 indexed requestnr);
 
     /** Errors */
     error JanusLottery__NotInFundingState();
@@ -146,8 +166,8 @@ contract JanusLottery is VRFConsumerBaseV2Plus {
                 uint16 maximum_selling_period_hours, 
                 uint16 funding_period_hours, 
                 uint256 minimum_jackpot, 
-                uint16 promille_fee,
-                address vrfCoordinator) VRFConsumerBaseV2Plus(vrfCoordinator) {
+                uint16 promille_fee/*,
+                address vrfCoordinator*/) VRFConsumerBaseV2Plus(/*vrfCoordinator*/address(0x1)) {
 
         if (minimum_selling_period_hours < 1 ||
             minimum_selling_period_hours > maximum_selling_period_hours ||
@@ -164,11 +184,17 @@ contract JanusLottery is VRFConsumerBaseV2Plus {
         i_minimum_jackpot = minimum_jackpot;
         s_owner = msg.sender;
         s_state = JanusState.JACKPOT_FUNDING;
-    }
 
+        uint256 subscriptionId;
+        bytes32 gasLane; // keyHash
+        uint32 callbackGasLimit;
+        uint256 interval;
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-        
+        i_interval = interval;
+        i_gasLane = gasLane;
+        i_subscriptionId = subscriptionId;
+        i_callbackGasLimit = callbackGasLimit;
+        i_keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
     }
 
     /** Payables */
@@ -286,11 +312,34 @@ contract JanusLottery is VRFConsumerBaseV2Plus {
         }
     }
 
+    // ChainLink VRF routines
     function requestRandomWords() private {
+         // Will revert if subscription is not set and funded.
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: i_gasLane,
+                subId: i_subscriptionId,
+                requestConfirmations: REQUEST_CONFIRMATIONS,
+                callbackGasLimit: i_callbackGasLimit,
+                numWords: NUM_WORDS,
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: true})
+                )
+            })
+        );
 
+        emit RequestedRandomNumber(requestId);
     }
 
-    function pickWinner(uint256[] calldata randomWords) pickingWinners private {
+    function fulfillRandomWords(
+        uint256,
+        uint256[] calldata _randomWords
+    ) internal override { 
+        pickWinner(_randomWords[0]);
+    }
+
+
+    function pickWinner(uint256 randomNumber) pickingWinners private {
 
         Winner memory winner;
         address payable funder = s_funder;
@@ -299,7 +348,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus {
         address payable ticket_holder;
         uint256 ticket_amount;
 
-        uint256 indexOfWinner = randomWords[0] % s_maximum_tickets;
+        uint256 indexOfWinner = randomNumber % s_maximum_tickets;
 
         uint256 nonFeePromille = 1000-i_promille_fee;
 
@@ -353,6 +402,32 @@ contract JanusLottery is VRFConsumerBaseV2Plus {
 
     }
 
+    // ChainLink Automation routines
+    
+    function checkUpkeep(
+        bytes calldata /* checkData */
+    )
+        external
+        view
+        override
+        returns (bool upkeepNeeded, bytes memory /*performData*/)
+    {
+        upkeepNeeded = (block.timestamp - lastTimeStamp) > i_interval;
+        return (upkeepNeeded, "0x0");
+    }
+
+    function performUpkeep(bytes calldata /* performData */) external override {
+        if ((block.timestamp - lastTimeStamp) > i_interval) {
+            lastTimeStamp = block.timestamp;
+
+            if (isFunding() && hasJackpot()) {
+                openTicketSales();
+            }
+            else if (isSelling()) {
+                closeTicketSales();
+            }
+        }
+    }
 
     /** Getter functions */
     function hasJackpot() public view returns(bool) {

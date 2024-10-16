@@ -28,6 +28,16 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/v0.8/automatio
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
+/* //////////////////////////////////////////////////////////////////////////// */
+/* //       __                           __          __  __                  // */
+/* //      / /___ _____  __  _______    / /   ____  / /_/ /____  _______  __ // */
+/* // __  / / __ `/ __ \/ / / / ___/   / /   / __ \/ __/ __/ _ \/ ___/ / / / // */
+/* /// /_/ / /_/ / / / / /_/ (__  )   / /___/ /_/ / /_/ /_/  __/ /  / /_/ /  // */
+/* //\____/\__,_/_/ /_/\__,_/____/   /_____/\____/\__/\__/\___/_/   \__, /   // */
+/* //                                                              /____/    // */
+/* //////////////////////////////////////////////////////////////////////////// */
+
+
 /**
  * @title Janus Lottery contract
  * @author Harold Rosenberg
@@ -79,8 +89,8 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     uint32 private constant NUM_WORDS = 1;
 
     // Chainlink Automation
-    uint256 private immutable i_interval;
-    uint256 private lastTimeStamp;
+    uint256 private constant ONE_HOUR_INTERVAL = 60*60;
+    uint256 private s_lastTimeStamp;
 
     // Janus Lottery Variables
     uint256 private immutable i_minimum_jackpot;
@@ -184,13 +194,11 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         i_minimum_jackpot = minimum_jackpot;
         s_owner = msg.sender;
         s_state = JanusState.JACKPOT_FUNDING;
+        s_lastTimeStamp = block.timestamp;
 
         uint256 subscriptionId;
         bytes32 gasLane; // keyHash
         uint32 callbackGasLimit;
-        uint256 interval;
-
-        i_interval = interval;
         i_gasLane = gasLane;
         i_subscriptionId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
@@ -198,6 +206,41 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     }
 
     /** Payables */
+
+/*
+                              .-------.
+                              |Jackpot|
+                  ____________|_______|____________
+                 |  __    __    ___  _____   __    |  
+                 | / _\  / /   /___\/__   \ / _\   | 
+                 | \ \  / /   //  //  / /\ \\ \  25|  
+                 | _\ \/ /___/ \_//  / /  \/_\ \ []| 
+                 | \__/\____/\___/   \/     \__/ []|
+                 |===_______===_______===_______===|
+                 ||*|\_     |*| _____ |*|\_     |*||
+                 ||*|| \ _  |*||     ||*|| \ _  |*||
+                 ||*| \_(_) |*||*BAR*||*| \_(_) |*||
+                 ||*| (_)   |*||_____||*| (_)   |*|| __
+                 ||*|_______|*|_______|*|_______|*||(__)
+                 |===_______===_______===_______===| ||
+                 ||*| _____ |*|\_     |*|  ___  |*|| ||
+                 ||*||     ||*|| \ _  |*| |_  | |*|| ||
+                 ||*||*BAR*||*| \_(_) |*|  / /  |*|| ||
+                 ||*||_____||*| (_)   |*| /_/   |*|| ||
+                 ||*|_______|*|_______|*|_______|*||_//
+                 |===_______===_______===_______===|_/
+                 ||*|  ___  |*|   |   |*| _____ |*||
+                 ||*| |_  | |*|  / \  |*||     ||*||
+                 ||*|  / /  |*| /_ _\ |*||*BAR*||*||              
+                 ||*| /_/   |*|   O   |*||_____||*||        
+                 ||*|_______|*|_______|*|_______|*||
+                 |lc=___________________________===|
+                 |  /___________________________\  |
+                 |   |                         |   |
+                _|    \_______________________/    |_
+               (_____________________________________)
+
+*/
 
     //fund the lottery
     function jackPotOffer(  uint256 ticketPrice, 
@@ -268,6 +311,17 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     }
 
+
+/*
+#######                                     ### 
+   #    #  ####  #    # ###### #####  ####  ### 
+   #    # #    # #   #  #        #   #      ### 
+   #    # #      ####   #####    #    ####   #  
+   #    # #      #  #   #        #        #     
+   #    # #    # #   #  #        #   #    # ### 
+   #    #  ####  #    # ######   #    ####  ### 
+*/
+
     function buyTicket() sellingTickets public payable {
         
         if (msg.value != s_ticket_price) {
@@ -287,6 +341,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     function openTicketSales() fundingJackpot private {
         s_state = JanusState.TICKET_SELLING;
+        s_lastTimeStamp = block.timestamp;
         emit TicketSaleOpened();
     }
 
@@ -298,6 +353,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
             s_funder = payable(address(0));
             s_ticket_holders = new address payable[](0);
             s_state = JanusState.JACKPOT_FUNDING;
+            s_lastTimeStamp = block.timestamp;
 
             (bool success,) = fund_receiver.call{value: s_jackpot}("");
             if (!success) {
@@ -311,6 +367,20 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
             requestRandomWords();
         }
     }
+
+/*
+                    (( _______
+          _______     /\O    O\
+         /O     /\   /  \      \
+        /   O  /O \ / O  \O____O\ ))
+     ((/_____O/    \\    /O     /
+       \O    O\    / \  /   O  /
+        \O    O\ O/   \/_____O/
+        \O____O\/ )) mrf      ))
+       ((
+  
+*/
+
 
     // ChainLink VRF routines
     function requestRandomWords() private {
@@ -371,6 +441,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         s_ticket_holders = new address payable[](0);
         s_tickets_total_amount = 0;
         s_state = JanusState.JACKPOT_FUNDING;
+        s_lastTimeStamp = block.timestamp;
         s_winners.push(winner);
 
         if (ticket_amount > 0) {
@@ -402,6 +473,22 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     }
 
+/*
+          __________
+         /________ /|
+        |   XII , | |
+        |     ,'  | |
+        |IX  * III| |
+        |     `.  | |
+        |____VI___| |
+        |    |    | |
+        |    |    | |
+        |    |    | |    -|- | /` |/  -|- | /` |/
+        |   ( )   | |     |  | \, |\   |  | \, |\
+   ejm  |_________|/
+
+*/
+
     // ChainLink Automation routines
     
     function checkUpkeep(
@@ -412,24 +499,49 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         override
         returns (bool upkeepNeeded, bytes memory /*performData*/)
     {
-        upkeepNeeded = (block.timestamp - lastTimeStamp) > i_interval;
-        return (upkeepNeeded, "0x0");
+        uint256 hoursPast = (block.timestamp - s_lastTimeStamp)/(60*60);
+
+        if (isFunding() &&
+            hoursPast >= i_funding_period_hours){
+            return (true,"0x0");
+        }
+
+        if (isSelling() &&
+            hoursPast >= s_selling_period_hours){
+            return (true,"0x0");
+        }
+
+        return (false, "0x0");
     }
 
     function performUpkeep(bytes calldata /* performData */) external override {
-        if ((block.timestamp - lastTimeStamp) > i_interval) {
-            lastTimeStamp = block.timestamp;
 
-            if (isFunding() && hasJackpot()) {
-                openTicketSales();
+        uint256 hoursPast = (block.timestamp - s_lastTimeStamp)/(60*60);
+
+        if (isFunding() && hoursPast >= i_funding_period_hours){
+            if (hasJackpot()) {
+                openTicketSales();               
+            } else {
+                //restart funding period
+                s_lastTimeStamp = block.timestamp;
             }
-            else if (isSelling()) {
-                closeTicketSales();
-            }
+        }
+        else if (isSelling() && hoursPast >= s_selling_period_hours){
+            closeTicketSales();
         }
     }
 
     /** Getter functions */
+
+    function getTimeLeftFunding() fundingJackpot public view returns(uint256) {
+        return (i_funding_period_hours*60*60) - (block.timestamp - s_lastTimeStamp);
+    }
+
+    function getTimeLeftSelling() sellingTickets public view returns(uint256) {
+        return (s_selling_period_hours*60*60) - (block.timestamp - s_lastTimeStamp);
+    }
+
+
     function hasJackpot() public view returns(bool) {
         return (s_funder != address(0));
     }

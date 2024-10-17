@@ -500,13 +500,14 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         returns (bool upkeepNeeded, bytes memory /*performData*/)
     {
         uint256 hoursPast = (block.timestamp - s_lastTimeStamp)/(60*60);
+        JanusState state = s_state;
 
-        if (isFunding() &&
+        if (state == JanusState.JACKPOT_FUNDING &&
             hoursPast >= i_funding_period_hours){
             return (true,"0x0");
         }
 
-        if (isSelling() &&
+        if (state == JanusState.TICKET_SELLING &&
             hoursPast >= s_selling_period_hours){
             return (true,"0x0");
         }

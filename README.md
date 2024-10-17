@@ -1,5 +1,7 @@
 # Janus Lottery Contract
 
+# WORK IN PROGRESS 
+
 ## Author
 Harold Rosenberg
 

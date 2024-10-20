@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
 import {JanusLottery} from "../src/JanusLottery.sol";
+import {Deployment} from "../script/Deployment.s.sol";
 
 contract JanusLotteryTest is Test {
 
@@ -23,26 +24,29 @@ contract JanusLotteryTest is Test {
     uint16 constant Promille_1000 = 1000;
     uint32 constant Thousand_Tickets = 1000;
     uint32 constant Hundred_Tickets = 100;
-
+    address constant VFR_ADDRESS = address(0x234);
+    uint256 constant SUBSCRIPTION_ID = 1234;
+    bytes32 constant GASLANE = "0x32";
+    uint32 constant CALLBACK_GASLIMIT = 1234;
 
     function test_DeploymentInvalidFee() public {
         vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
-        new JanusLottery(One_Hour,One_Hour,One_Hour,One_ETH,Promille_1000);
+        new JanusLottery(One_Hour,One_Hour,One_Hour,One_ETH,Promille_1000,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
     }
 
     function test_DeploymentInvalidMinimumJackpot() public {
         vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
-        new JanusLottery(One_Hour,One_Hour,One_Hour,Zero_ETH,Promille_999);
+        new JanusLottery(One_Hour,One_Hour,One_Hour,Zero_ETH,Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
     }
 
     function test_DeploymentInvalidFundingPeriod() public {
         vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
-        new JanusLottery(One_Hour,One_Hour,Zero_Hours,One_ETH,Promille_999);
+        new JanusLottery(One_Hour,One_Hour,Zero_Hours,One_ETH,Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
     }
 
     function test_DeploymentInvalidMinimumSellingPeriod() public {
         vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
-        new JanusLottery(Zero_Hours,One_Hour,One_Hour,One_ETH,Promille_999);
+        new JanusLottery(Zero_Hours,One_Hour,One_Hour,One_ETH,Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
     }
 
 
@@ -52,7 +56,7 @@ contract JanusLotteryTest is Test {
                             One_Hour,
                             One_Hour,
                             One_ETH,
-                            Promille_999);
+                            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
     }
 
     function test_DeploymentCorrect() public {
@@ -61,7 +65,7 @@ contract JanusLotteryTest is Test {
             Two_Hours,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
         
         assertEq(janusLottery.getOwner(),address(this));
         assertEq(janusLottery.getFeePromille(),Promille_999);
@@ -79,7 +83,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
         vm.expectRevert(JanusLottery.JanusLottery__JackpotTooSmall.selector);
         //One_Wei < One_ETH
         janusLottery.jackPotOffer{value: One_Wei}(One_Wei, Thousand_Tickets, Two_Hours);   
@@ -91,7 +95,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
         vm.expectRevert(JanusLottery.JanusLottery__TicketSellingPeriodTooShort.selector);
         //One_Hours < Two_Hours
         janusLottery.jackPotOffer{value: One_ETH}(One_Wei, Thousand_Tickets, One_Hour);   
@@ -103,7 +107,7 @@ contract JanusLotteryTest is Test {
             Two_Hours,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
         vm.expectRevert(JanusLottery.JanusLottery__TicketSellingPeriodTooLong.selector);
         //One_Day > Two_Hours
         janusLottery.jackPotOffer{value: One_ETH}(One_Wei, Thousand_Tickets, One_Day);   
@@ -116,7 +120,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
         vm.expectRevert(JanusLottery.JanusLottery__MaximumTicketsTooSmall.selector);
         //Zero_Tickets == 0
         janusLottery.jackPotOffer{value: One_ETH}(One_Wei, Zero_Tickets, Two_Hours);   
@@ -128,7 +132,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
         vm.expectRevert(JanusLottery.JanusLottery__InvalidTicketPrice.selector);
         //Zero_ETH == 0
         janusLottery.jackPotOffer{value: One_ETH}(Zero_ETH, Thousand_Tickets, Two_Hours);   
@@ -141,7 +145,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
 
         vm.expectEmit(true, false, false, true);
         emit JanusLottery.JackPotOfferAccepted(address(this), One_ETH, One_Gwei, Thousand_Tickets, Two_Hours);
@@ -164,7 +168,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
 
         janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
 
@@ -179,7 +183,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
 
         janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
 
@@ -194,7 +198,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
 
         janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
 
@@ -209,7 +213,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
 
         janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Hundred_Tickets, Two_Hours);
 
@@ -224,7 +228,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
 
         address first_funder = address(0x1);
         address second_funder = address(0x2);
@@ -261,7 +265,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
 
         address first_funder = address(0x1);
         address second_funder = address(0x2);
@@ -298,7 +302,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
 
         address first_funder = address(0x1);
         address second_funder = address(0x2);
@@ -336,7 +340,7 @@ contract JanusLotteryTest is Test {
             One_Day,
             One_Hour,
             One_ETH,
-            Promille_999);
+            Promille_999,VFR_ADDRESS,SUBSCRIPTION_ID,GASLANE,CALLBACK_GASLIMIT);
 
         address first_funder = address(0x1);
         address second_funder = address(0x2);

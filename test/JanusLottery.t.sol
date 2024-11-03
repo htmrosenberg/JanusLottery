@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import {Test, console} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
+import {Test} from "forge-std/Test.sol";
 import {JanusLottery} from "../src/JanusLottery.sol";
+import {ChainAdapter} from "../script/ChainAdapter.sol";
 import {Deployment} from "../script/Deployment.s.sol";
 
+
 contract JanusLotteryTest is Test {
-    uint16 constant Zero_Hours = 0;
+
+
+    uint16 constant ZERO_HOURS = 0;
     uint16 constant One_Hour = 1;
     uint16 constant Two_Hours = 2;
     uint16 constant One_Day = 24;
@@ -28,235 +33,156 @@ contract JanusLotteryTest is Test {
     bytes32 constant GASLANE = "0x32";
     uint32 constant CALLBACK_GASLIMIT = 1234;
 
-    function test_DeploymentInvalidFee() public {
-        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
-        new JanusLottery(
-            One_Hour,
-            One_Hour,
-            One_Hour,
-            One_ETH,
-            Promille_1000,
-            VFR_ADDRESS,
-            SUBSCRIPTION_ID,
-            GASLANE,
-            CALLBACK_GASLIMIT
-        );
+    JanusLottery public janusLottery;
+    ChainAdapter public chainAdapter;
+    ChainAdapter.Adaptation public chainAdaptation;
+    address public PLAYER = makeAddr("player");
+    uint256 public constant STARTING_USER_BALANCE = 10 ether;
+    uint256 public constant LINK_BALANCE = 100 ether;
+
+    Deployment deployment;
+
+// ┌───────────────┐
+// │┏━┓┏━╸╺┳╸╻ ╻┏━┓│
+// │┗━┓┣╸  ┃ ┃ ┃┣━┛│
+// │┗━┛┗━╸ ╹ ┗━┛╹  │
+// └───────────────┘
+
+    function setUp() external {
+        deployment = new Deployment();
+        (janusLottery, chainAdapter) = deployment.run();
+        vm.deal(PLAYER, STARTING_USER_BALANCE);
+
+        chainAdaptation = chainAdapter.getAdaptation();
+
+/*        vm.startPrank(msg.sender);
+        if (block.chainid == LOCAL_CHAIN_ID) {
+            link.mint(msg.sender, LINK_BALANCE);
+          
+            VRFCoordinatorV2_5Mock(chainAdaptation.vrfCoordinatorV2_5).fundSubscription(chainAdaptation.subscriptionId, LINK_BALANCE);
+        }
+        link.approve(chainAdaptation.vrfCoordinatorV2_5, LINK_BALANCE);
+        vm.stopPrank();*/
     }
 
-    function test_DeploymentInvalidMinimumJackpot() public {
-        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
-        new JanusLottery(
-            One_Hour,
-            One_Hour,
-            One_Hour,
-            Zero_ETH,
-            Promille_999,
-            VFR_ADDRESS,
-            SUBSCRIPTION_ID,
-            GASLANE,
-            CALLBACK_GASLIMIT
-        );
-    }
-
-    function test_DeploymentInvalidFundingPeriod() public {
-        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
-        new JanusLottery(
-            One_Hour,
-            One_Hour,
-            Zero_Hours,
-            One_ETH,
-            Promille_999,
-            VFR_ADDRESS,
-            SUBSCRIPTION_ID,
-            GASLANE,
-            CALLBACK_GASLIMIT
-        );
-    }
-
-    function test_DeploymentInvalidMinimumSellingPeriod() public {
-        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
-        new JanusLottery(
-            Zero_Hours,
-            One_Hour,
-            One_Hour,
-            One_ETH,
-            Promille_999,
-            VFR_ADDRESS,
-            SUBSCRIPTION_ID,
-            GASLANE,
-            CALLBACK_GASLIMIT
-        );
-    }
-
-    function test_DeploymentInvalidMaximumSellingPeriod() public {
-        vm.expectRevert(JanusLottery.JanusLottery__InvalidConstructionParameter.selector);
-        new JanusLottery(
-            Two_Hours,
-            One_Hour,
-            One_Hour,
-            One_ETH,
-            Promille_999,
-            VFR_ADDRESS,
-            SUBSCRIPTION_ID,
-            GASLANE,
-            CALLBACK_GASLIMIT
-        );
-    }
-
-    function test_DeploymentCorrect() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour,
-            Two_Hours,
-            One_Hour,
-            One_ETH,
-            Promille_999,
-            VFR_ADDRESS,
-            SUBSCRIPTION_ID,
-            GASLANE,
-            CALLBACK_GASLIMIT
-        );
-
-        assertEq(janusLottery.getOwner(), address(this));
-        assertEq(janusLottery.getFeePromille(), Promille_999);
-        assertEq(janusLottery.getFundingPeriodHours(), One_Hour);
-        assertEq(janusLottery.getFundingPeriodHours(), One_Hour);
-        assertEq(janusLottery.getMinimumSellingPeriodHours(), One_Hour);
-        assertEq(janusLottery.getMaximumSellingPeriodHours(), Two_Hours);
-        assertEq(janusLottery.getMinimumJackotPot(), One_ETH);
-        assert(janusLottery.isFunding());
-    }
+    uint256 private constant MINIMUM_VALUE = 1 gwei;
+    uint16 private constant MINIMUM_TICKETS = 1;
 
     function testJackpotTooSmallForJackpot() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT() - 1 gwei;
         vm.expectRevert(JanusLottery.JanusLottery__JackpotTooSmall.selector);
-        //One_Wei < One_ETH
-        janusLottery.jackPotOffer{value: One_Wei}(One_Wei, Thousand_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: jackpotValue}(
+            MINIMUM_VALUE, 
+            MINIMUM_TICKETS, 
+            sellingPeriod);
     }
 
     function testTicketSellingPeriodTooShortForJackpot() public {
-        JanusLottery janusLottery = new JanusLottery(
-            Two_Hours,
-            One_Day,
-            One_Hour,
-            One_ETH,
-            Promille_999,
-            VFR_ADDRESS,
-            SUBSCRIPTION_ID,
-            GASLANE,
-            CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS() - 1;
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         vm.expectRevert(JanusLottery.JanusLottery__TicketSellingPeriodTooShort.selector);
-        //One_Hours < Two_Hours
-        janusLottery.jackPotOffer{value: One_ETH}(One_Wei, Thousand_Tickets, One_Hour);
+        janusLottery.jackPotOffer{value: jackpotValue}(
+            MINIMUM_VALUE, 
+            MINIMUM_TICKETS, 
+            sellingPeriod);
     }
 
     function testTicketSellingPeriodTooLongForJackpot() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour,
-            Two_Hours,
-            One_Hour,
-            One_ETH,
-            Promille_999,
-            VFR_ADDRESS,
-            SUBSCRIPTION_ID,
-            GASLANE,
-            CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MAXIMUM_SELLING_PERIOD_HOURS() + 1;
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         vm.expectRevert(JanusLottery.JanusLottery__TicketSellingPeriodTooLong.selector);
-        //One_Day > Two_Hours
-        janusLottery.jackPotOffer{value: One_ETH}(One_Wei, Thousand_Tickets, One_Day);
+        janusLottery.jackPotOffer{value: jackpotValue}(
+            MINIMUM_VALUE, 
+            MINIMUM_TICKETS, 
+            sellingPeriod);
     }
 
     function testMaximumTicketsTooSmallForJackpot() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         vm.expectRevert(JanusLottery.JanusLottery__MaximumTicketsTooSmall.selector);
-        //Zero_Tickets == 0
-        janusLottery.jackPotOffer{value: One_ETH}(One_Wei, Zero_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: jackpotValue}(
+            MINIMUM_VALUE, 
+            MINIMUM_TICKETS - 1, 
+            sellingPeriod);
     }
 
     function testInvalidTicketPriceForJackpot() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         vm.expectRevert(JanusLottery.JanusLottery__InvalidTicketPrice.selector);
-        //Zero_ETH == 0
-        janusLottery.jackPotOffer{value: One_ETH}(Zero_ETH, Thousand_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: jackpotValue}(
+            0, 
+            MINIMUM_TICKETS, 
+            sellingPeriod);        
     }
 
     function testCorrectJackpotOffer() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(address(this), One_ETH, One_Gwei, Thousand_Tickets, Two_Hours);
+        emit JanusLottery.JackPotOfferAccepted(address(this), jackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
-        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
         assertEq(janusLottery.getFunder(), address(this));
-        assertEq(janusLottery.getJackpot(), One_ETH);
-        assertEq(janusLottery.getMaximumTickets(), Thousand_Tickets);
-        assertEq(janusLottery.getSellingPeriodHours(), Two_Hours);
-        assertEq(janusLottery.getTicketPrice(), One_Gwei);
+        assertEq(janusLottery.getJackpot(), jackpotValue);
+        assertEq(janusLottery.getMaximumTickets(), MINIMUM_TICKETS);
+        assertEq(janusLottery.getSellingPeriodHours(), sellingPeriod);
+        assertEq(janusLottery.getTicketPrice(), MINIMUM_VALUE);
         assert(janusLottery.isFunding());
     }
 
     function testRejectSameJackpotOffer() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
 
-        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
         vm.expectRevert(JanusLottery.JanusLottery__OfferRejected.selector);
 
-        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
     }
 
     function testRejectShorterJackpotOffer() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
 
-        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod+1);
 
         vm.expectRevert(JanusLottery.JanusLottery__OfferRejected.selector);
         // One_Hour < Two_Hours
-        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, One_Hour);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
     }
 
     function testRejectMoreExpensiveJackpotOffer() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
 
-        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
         vm.expectRevert(JanusLottery.JanusLottery__OfferRejected.selector);
-        //Five_Gwei > One_Gwei
-        janusLottery.jackPotOffer{value: One_ETH}(Five_Gwei, Thousand_Tickets, Two_Hours);
+  
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE + 1, MINIMUM_TICKETS, sellingPeriod);
     }
 
     function testRejectMoreTicketsJackpotOffer() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
+        uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
 
-        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Hundred_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
         vm.expectRevert(JanusLottery.JanusLottery__OfferRejected.selector);
-        //Thousand_Tickets > Hundred_Tickets
-        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Thousand_Tickets, Two_Hours);
+  
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS + 1, sellingPeriod);
     }
 
     function testAcceptBiggerJackpotOffer() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
+        uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
+        uint256 firstJackpotValue = deployment.MINIMUM_JACKPOT();
+        uint256 secondJackpotValue = deployment.MINIMUM_JACKPOT() + 1 gwei;
 
         address first_funder = address(0x1);
         address second_funder = address(0x2);
@@ -265,33 +191,29 @@ contract JanusLotteryTest is Test {
         vm.deal(second_funder, 3 ether);
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(first_funder, One_ETH, One_Gwei, Hundred_Tickets, Two_Hours);
+        emit JanusLottery.JackPotOfferAccepted(first_funder, firstJackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
         vm.prank(first_funder);
-        janusLottery.jackPotOffer{value: One_ETH}(One_Gwei, Hundred_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: firstJackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
-        assertEq(first_funder.balance, 1 ether);
-        assertEq(address(janusLottery).balance, 1 ether);
+        assertEq(first_funder.balance, 2 ether - firstJackpotValue);
+        assertEq(address(janusLottery).balance, firstJackpotValue);
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(second_funder, Two_ETH, One_Gwei, Hundred_Tickets, Two_Hours);
+        emit JanusLottery.JackPotOfferAccepted(second_funder, secondJackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
         vm.prank(second_funder);
-        janusLottery.jackPotOffer{value: Two_ETH}(One_Gwei, Hundred_Tickets, Two_Hours);
+        janusLottery.jackPotOffer{value: secondJackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
         assertEq(first_funder.balance, 2 ether);
-        assertEq(second_funder.balance, 1 ether);
-        assertEq(address(janusLottery).balance, 2 ether);
+        assertEq(second_funder.balance, 3 ether - secondJackpotValue);
+        assertEq(address(janusLottery).balance, secondJackpotValue);
 
         assertEq(janusLottery.getFunder(), second_funder);
-        assertEq(janusLottery.getJackpot(), Two_ETH);
+        assertEq(janusLottery.getJackpot(), secondJackpotValue);
     }
 
     function testAcceptLongerJackpotOffer() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
-
         address first_funder = address(0x1);
         address second_funder = address(0x2);
 
@@ -322,10 +244,6 @@ contract JanusLotteryTest is Test {
     }
 
     function testAcceptCheaperJackpotOffer() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
-
         address first_funder = address(0x1);
         address second_funder = address(0x2);
 
@@ -356,10 +274,6 @@ contract JanusLotteryTest is Test {
     }
 
     function testAcceptBetterChanceJackpotOffer() public {
-        JanusLottery janusLottery = new JanusLottery(
-            One_Hour, One_Day, One_Hour, One_ETH, Promille_999, VFR_ADDRESS, SUBSCRIPTION_ID, GASLANE, CALLBACK_GASLIMIT
-        );
-
         address first_funder = address(0x1);
         address second_funder = address(0x2);
 

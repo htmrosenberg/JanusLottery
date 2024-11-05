@@ -106,9 +106,9 @@ contract BuyTicksTest is Test {
     }
 
     function testCorrectAmount() public {
-        address funder = address(0x5);
-        vm.deal(funder, 1 ether);
-        vm.prank(funder);
+        address buyer = address(0x5);
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
 
         janusLottery.buyTicket{ value: ticketPrice}();
 
@@ -118,11 +118,11 @@ contract BuyTicksTest is Test {
     }
 
     function testTooManyTickets() public {
-        address funder = address(0x5);
-        vm.deal(funder, 1 ether);
+        address buyer = address(0x5);
+        vm.deal(buyer, 1 ether);
  
         for (uint i = 0; i < 5; i++) {
-            vm.prank(funder);
+            vm.prank(buyer);
             janusLottery.buyTicket{ value: ticketPrice}();
         }
 
@@ -136,7 +136,7 @@ contract BuyTicksTest is Test {
 
         vm.expectRevert(JanusLottery.JanusLottery__SoldOut.selector);
 
-        vm.prank(funder);
+        vm.prank(buyer);
         janusLottery.buyTicket{ value: ticketPrice}();
     }
 
@@ -147,15 +147,52 @@ contract BuyTicksTest is Test {
 // └───────────────────────────────────────────────────────┘
 
     function testClosingSellingPhaseTooEarly() public {
-
+        uint32 hoursSelling = sellingPeriodHours - 1;
+        vm.warp(block.timestamp + (hoursSelling * 60 * 60));
+        vm.roll(block.number + 1);
+        (bool upkeepNeeded,) = janusLottery.checkUpkeep("");
+        assert(!upkeepNeeded);
     }
 
     function testClosingSellingPhaseWithoutTicketsSold() public {
-        
+        uint256 hoursSelling = sellingPeriodHours;
+        vm.warp(block.timestamp + (hoursSelling * 60 * 60));
+        vm.roll(block.number + 1);
+        assertEq(janusLottery.getTimeLeftSelling(),0);
+        (bool upkeepNeeded,) = janusLottery.checkUpkeep("");
+        assert(upkeepNeeded);
+        assert(janusLottery.isSelling());
+        address funder = address(0x1);
+        uint256 funder_balance = funder.balance;
+        uint256 jackpot = janusLottery.getJackpot();
+        janusLottery.performUpkeep("");
+        //no sales, return jackpot to funder
+        //and restart a new funding phase
+        assert(janusLottery.isFunding());
+        uint256 funder_balance_after = funder.balance;
+        assertEq(funder_balance_after - funder_balance, jackpot);
+        assert(!janusLottery.hasJackpot());
+        assertEq(janusLottery.getTotalTicketHolders(),0);
     }
 
-    function testClosingSellingPhase() public {
-        
+    function testClosingSellingPhaseWithTicketsSold() public {
+        uint256 hoursSelling = sellingPeriodHours;
+        vm.warp(block.timestamp + (hoursSelling * 60 * 60));
+        vm.roll(block.number + 1);
+        assertEq(janusLottery.getTimeLeftSelling(),0);
+        (bool upkeepNeeded,) = janusLottery.checkUpkeep("");
+        assert(upkeepNeeded);
+        assert(janusLottery.isSelling());
+
+        address buyer = address(0x5);
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        janusLottery.buyTicket{ value: ticketPrice}();
+
+        janusLottery.performUpkeep("");
+
+        assert(janusLottery.isCalculating());
+      
     }
 
 }

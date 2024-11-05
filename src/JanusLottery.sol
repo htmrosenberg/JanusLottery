@@ -590,11 +590,11 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     */
 
     function getTimeLeftFunding() public view fundingJackpot returns (uint256) {
-        return (i_funding_period_hours * 60 * 60) - (block.timestamp - s_lastTimeStamp);
+        return (uint256(i_funding_period_hours) * 60 * 60) - (block.timestamp - s_lastTimeStamp);
     }
 
     function getTimeLeftSelling() public view sellingTickets returns (uint256) {
-        return (s_selling_period_hours * 60 * 60) - (block.timestamp - s_lastTimeStamp);
+        return (uint256(s_selling_period_hours) * 60 * 60) - (block.timestamp - s_lastTimeStamp);
     }
 
     function hasJackpot() public view returns (bool) {

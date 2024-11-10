@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {JanusLottery} from "../src/JanusLottery.sol";
-import {ChainAdapter} from "../script/ChainAdapter.sol";
+import {ChainAdapter} from "../script/ChainAdapter.s.sol";
 import {Deployment} from "../script/Deployment.s.sol";
 
 
@@ -58,17 +58,6 @@ contract JackpotOfferTest is Test {
         deployment = new Deployment();
         (janusLottery, chainAdapter) = deployment.run();
         vm.deal(PLAYER, STARTING_USER_BALANCE);
-
-        chainAdaptation = chainAdapter.getAdaptation();
-
-/*        vm.startPrank(msg.sender);
-        if (block.chainid == LOCAL_CHAIN_ID) {
-            link.mint(msg.sender, LINK_BALANCE);
-          
-            VRFCoordinatorV2_5Mock(chainAdaptation.vrfCoordinatorV2_5).fundSubscription(chainAdaptation.subscriptionId, LINK_BALANCE);
-        }
-        link.approve(chainAdaptation.vrfCoordinatorV2_5, LINK_BALANCE);
-        vm.stopPrank();*/
     }
 
     uint256 private constant MINIMUM_VALUE = 1 gwei;
@@ -394,7 +383,7 @@ contract JackpotOfferTest is Test {
 
     }    
 
-     function testJustClosingOfferPhaseWithJackpot() public {
+    function testJustClosingOfferPhaseWithJackpot() public {
 
         uint32 fundingHours = deployment.FUNDING_PERIOD_HOURS();
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();

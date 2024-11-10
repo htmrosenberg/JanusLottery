@@ -289,7 +289,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     //fund the lottery
     function jackPotOffer(uint256 ticketPrice, uint32 maximum_tickets, uint16 selling_period_hours)
-        public
+        external
         payable
         fundingJackpot
     {
@@ -366,7 +366,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
        ╚═╝   ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝
     */
 
-    function buyTicket() public payable sellingTickets {
+    function buyTicket() external payable sellingTickets {
         if (msg.value != s_ticket_price) {
             revert JanusLottery__InvalidTicketPrice();
         }

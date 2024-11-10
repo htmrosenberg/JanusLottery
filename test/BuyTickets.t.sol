@@ -4,10 +4,10 @@ pragma solidity ^0.8.28;
 import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {JanusLottery} from "../src/JanusLottery.sol";
-import {ChainAdapter} from "../script/ChainAdapter.sol";
+import {ChainAdapter} from "../script/ChainAdapter.s.sol";
 import {Deployment} from "../script/Deployment.s.sol";
-
-
+import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {LinkToken} from "../test/mocks/LinkToken.sol";
 // ┌──────────────────────────────────────────────┐
 // │╺┳╸┏━╸┏━┓╺┳╸   ┏┓ ╻ ╻╻ ╻   ╺┳╸╻┏━╸╻┏ ┏━╸╺┳╸┏━┓│
 // │ ┃ ┣╸ ┗━┓ ┃    ┣┻┓┃ ┃┗┳┛    ┃ ┃┃  ┣┻┓┣╸  ┃ ┗━┓│
@@ -45,14 +45,14 @@ contract BuyTicksTest is Test {
 
         chainAdaptation = chainAdapter.getAdaptation();
 
-/*        vm.startPrank(msg.sender);
-        if (block.chainid == LOCAL_CHAIN_ID) {
-            link.mint(msg.sender, LINK_BALANCE);
+        vm.startPrank(msg.sender);
+        if (block.chainid == chainAdapter.CHAIN_ID_LOCAL()) {
+           LinkToken(chainAdaptation.link).mint(msg.sender, LINK_BALANCE);
           
             VRFCoordinatorV2_5Mock(chainAdaptation.vrfCoordinatorV2_5).fundSubscription(chainAdaptation.subscriptionId, LINK_BALANCE);
         }
-        link.approve(chainAdaptation.vrfCoordinatorV2_5, LINK_BALANCE);
-        vm.stopPrank();*/
+        LinkToken(chainAdaptation.link).approve(chainAdaptation.vrfCoordinatorV2_5, LINK_BALANCE);
+        vm.stopPrank();
 
         //make jackpot offer
         uint32 fundingHours = deployment.FUNDING_PERIOD_HOURS();
@@ -177,6 +177,12 @@ contract BuyTicksTest is Test {
 
     function testClosingSellingPhaseWithTicketsSold() public {
         uint256 hoursSelling = sellingPeriodHours;
+    
+        address buyer = address(0x5);
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        janusLottery.buyTicket{ value: ticketPrice}();
+
         vm.warp(block.timestamp + (hoursSelling * 60 * 60));
         vm.roll(block.number + 1);
         assertEq(janusLottery.getTimeLeftSelling(),0);
@@ -184,15 +190,21 @@ contract BuyTicksTest is Test {
         assert(upkeepNeeded);
         assert(janusLottery.isSelling());
 
-        address buyer = address(0x5);
-        vm.deal(buyer, 1 ether);
-        vm.prank(buyer);
-        janusLottery.buyTicket{ value: ticketPrice}();
+        vm.expectEmit(true, false, false, true);
+        emit JanusLottery.RequestedRandomNumber(1);
 
         janusLottery.performUpkeep("");
 
         assert(janusLottery.isCalculating());
-      
+
+
+        vm.expectRevert(JanusLottery.JanusLottery__NotSellingTickets.selector);
+        janusLottery.buyTicket{ value: ticketPrice}();
+
+        vm.expectRevert(JanusLottery.JanusLottery__NotInFundingState.selector);
+        janusLottery.jackPotOffer{value: jackpotValue}(ticketPrice, maximumTickets, sellingPeriodHours);
     }
+
+
 
 }

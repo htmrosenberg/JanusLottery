@@ -4,7 +4,8 @@ pragma solidity ^0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {JanusLottery} from "../src/JanusLottery.sol";
-import {ChainAdapter} from "../script/ChainAdapter.sol";
+import {ChainAdapter} from "../script/ChainAdapter.s.sol";
+import {AddConsumer, CreateSubscription, FundSubscription} from "./Interactions.s.sol";
 
 // ┌──────────────────────────────┐
 // │╺┳┓┏━╸┏━┓╻  ┏━┓╻ ╻┏┳┓┏━╸┏┓╻╺┳╸│
@@ -20,10 +21,6 @@ contract Deployment is Script {
     uint256 constant public MINIMUM_JACKPOT = 1 ether;
     uint16 public constant PROMILLE_FEE = 1;
     
-    function getMinimumJackpot() public pure returns(uint256) {
-        return MINIMUM_JACKPOT;
-    }
-
 // ┌────────────────────────┐
 // │┏━┓╻ ╻┏┓╻   ┏━┓┏━┓┏━╸┏━┓│
 // │┣┳┛┃ ┃┃┗┫   ┣━┫┣┳┛┃╺┓┗━┓│
@@ -38,7 +35,23 @@ contract Deployment is Script {
         uint16 promille_fee
     ) public returns (JanusLottery, ChainAdapter) {
         ChainAdapter chainAdapter = new ChainAdapter();
-        ChainAdapter.Adaptation memory chainAdaptation = chainAdapter.getAdaptation();
+        ChainAdapter.Adaptation memory adaptation = chainAdapter.getAdaptation();
+
+        AddConsumer addConsumer = new AddConsumer();
+  
+        if (adaptation.subscriptionId == 0) {
+            CreateSubscription createSubscription = new CreateSubscription();
+            (adaptation.subscriptionId, adaptation.vrfCoordinatorV2_5) =
+                createSubscription.createSubscription(adaptation.vrfCoordinatorV2_5, adaptation.account);
+
+            FundSubscription fundSubscription = new FundSubscription();
+            fundSubscription.fundSubscription(
+                adaptation.vrfCoordinatorV2_5, adaptation.subscriptionId, adaptation.link, adaptation.account
+            );
+
+            chainAdapter.updateAdaptation(adaptation);
+        }
+
 
 
         vm.startBroadcast();
@@ -48,13 +61,14 @@ contract Deployment is Script {
             funding_period_hours,
             minimum_jackpot,
             promille_fee,
-            chainAdaptation.vrfCoordinatorV2_5,
-            chainAdaptation.subscriptionId,
-            chainAdaptation.gasLane,
-            chainAdaptation.callbackGasLimit
+            adaptation.vrfCoordinatorV2_5,
+            adaptation.subscriptionId,
+            adaptation.gasLane,
+            adaptation.callbackGasLimit
         );
 
         vm.stopBroadcast();
+        addConsumer.addConsumer(address(janusLottery), adaptation.vrfCoordinatorV2_5, adaptation.subscriptionId, adaptation.account);
         return (janusLottery, chainAdapter);
     }
 

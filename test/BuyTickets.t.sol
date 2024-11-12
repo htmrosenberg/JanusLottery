@@ -14,10 +14,7 @@ import {LinkToken} from "../test/mocks/LinkToken.sol";
 // │ ╹ ┗━╸┗━┛ ╹    ┗━┛┗━┛ ╹     ╹ ╹┗━╸╹ ╹┗━╸ ╹ ┗━┛│
 // └──────────────────────────────────────────────┘
 
-contract BuyTicksTest is Test {
-
-
-    
+contract BuyTicksTest is Test { 
 
     JanusLottery public janusLottery;
     ChainAdapter public chainAdapter;

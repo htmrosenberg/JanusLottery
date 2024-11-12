@@ -52,8 +52,6 @@ contract Deployment is Script {
             chainAdapter.updateAdaptation(adaptation);
         }
 
-
-
         vm.startBroadcast();
         JanusLottery janusLottery = new JanusLottery(
             minimum_selling_period_hours,

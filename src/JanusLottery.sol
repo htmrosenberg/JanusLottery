@@ -437,7 +437,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
                 requestConfirmations: REQUEST_CONFIRMATIONS,
                 callbackGasLimit: i_callbackGasLimit,
                 numWords: NUM_WORDS,
-                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
             })
         );
 
@@ -449,6 +449,8 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     }
 
     function pickWinner(uint256 randomNumber) private pickingWinners {
+
+
         address payable funder = s_funder;
         uint256 funder_amount;
 
@@ -456,7 +458,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         uint256 ticket_amount;
 
         uint256 indexOfWinner = randomNumber % s_maximum_tickets;
-
+        
         uint256 nonFeePromille = 1000 - i_promille_fee;
 
         if (indexOfWinner < s_ticket_holders.length) {
@@ -481,7 +483,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
             emit TicketWon(ticket_holder, ticket_amount);
         }
 
-        if (ticket_amount > 0) {
+        if (funder_amount > 0) {
             emit FunderWon(funder, funder_amount);
         }
 

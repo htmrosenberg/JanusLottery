@@ -476,6 +476,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         s_funder = payable(address(0));
         s_ticket_holders = new address payable[](0);
         s_tickets_total_amount = 0;
+        s_jackpot = 0;
         s_state = JanusState.JACKPOT_FUNDING;
         s_lastTimeStamp = block.timestamp;
 

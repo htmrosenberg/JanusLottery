@@ -78,6 +78,18 @@ contract JackpotOfferTest is Test {
             sellingPeriod);
     }
 
+    function testProtectForwarderUnauthorized() public {
+        vm.prank(address(0x321));
+        vm.expectRevert(JanusLottery.JanusLottery__Unauthorized.selector);
+        janusLottery.setAutomationForwarder(address(0x123));
+    }
+
+    function testProtectForwarderAuthorized() public {        
+        vm.prank(janusLottery.getOwner());
+        janusLottery.setAutomationForwarder(address(0x123));
+    }
+
+
     function testTicketSellingPeriodTooShortForJackpot() public {
         uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS() - 1;
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
@@ -336,6 +348,8 @@ contract JackpotOfferTest is Test {
         assertEq(janusLottery.getTicketPrice(), ticketPrice);
         assertEq(janusLottery.getFunder(), second_funder);
         assertEq(janusLottery.getJackpot(), jackpotValue);
+
+        assertEq(janusLottery.getTimeLeftFunding(),(uint256)(deployment.FUNDING_PERIOD_HOURS())*60*60);
     }
 
 // ┌────────────────────────────────────────────────────────────────┐

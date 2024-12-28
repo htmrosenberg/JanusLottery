@@ -124,5 +124,4 @@ contract ContractConstructionTest is Test {
         assertEq(janusLottery.getMinimumJackotPot(), One_ETH);
         assert(janusLottery.isFunding());
     }
-
 }

@@ -449,8 +449,6 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     }
 
     function pickWinner(uint256 randomNumber) private pickingWinners {
-
-
         address payable funder = s_funder;
         uint256 funder_amount;
 
@@ -458,7 +456,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         uint256 ticket_amount;
 
         uint256 indexOfWinner = randomNumber % s_maximum_tickets;
-        
+
         uint256 nonFeePromille = 1000 - i_promille_fee;
 
         if (indexOfWinner < s_ticket_holders.length) {
@@ -522,7 +520,7 @@ contract JanusLottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         |    |    | |
         |    |    | |    -|- | /` |/  -|- | /` |/
         |   ( )   | |     |  | \, |\   |  | \, |\
-   ejm  |_________|/
+    ejm  |_________|/
 
 
      █████╗ ██╗   ██╗████████╗ ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗████████╗██╗ ██████╗ ███╗   ██╗

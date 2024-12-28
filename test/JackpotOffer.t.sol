@@ -4,9 +4,8 @@ pragma solidity ^0.8.28;
 import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {JanusLottery} from "../src/JanusLottery.sol";
-import {ChainAdapter} from "../script/ChainAdapter.s.sol";
+import {HelperConfig} from "../script/HelperConfig.s.sol";
 import {Deployment} from "../script/Deployment.s.sol";
-
 
 // ┌─────────────────────────────────────────────────────────┐
 // │╺┳╸┏━╸┏━┓╺┳╸    ┏┓┏━┓┏━╸╻┏ ┏━┓┏━┓╺┳╸   ┏━┓┏━╸┏━╸┏━╸┏━┓┏━┓│
@@ -15,8 +14,6 @@ import {Deployment} from "../script/Deployment.s.sol";
 // └─────────────────────────────────────────────────────────┘
 
 contract JackpotOfferTest is Test {
-
-
     uint16 constant ZERO_HOURS = 0;
     uint16 constant One_Hour = 1;
     uint16 constant Two_Hours = 2;
@@ -40,42 +37,39 @@ contract JackpotOfferTest is Test {
     uint32 constant CALLBACK_GASLIMIT = 1234;
 
     JanusLottery public janusLottery;
-    ChainAdapter public chainAdapter;
-    ChainAdapter.Adaptation public chainAdaptation;
+    HelperConfig public helperConfig;
+    HelperConfig.NetworkConfig public networkConfig;
     address public PLAYER = makeAddr("player");
     uint256 public constant STARTING_USER_BALANCE = 10 ether;
     uint256 public constant LINK_BALANCE = 100 ether;
 
     Deployment deployment;
 
-// ┌───────────────┐
-// │┏━┓┏━╸╺┳╸╻ ╻┏━┓│
-// │┗━┓┣╸  ┃ ┃ ┃┣━┛│
-// │┗━┛┗━╸ ╹ ┗━┛╹  │
-// └───────────────┘
+    // ┌───────────────┐
+    // │┏━┓┏━╸╺┳╸╻ ╻┏━┓│
+    // │┗━┓┣╸  ┃ ┃ ┃┣━┛│
+    // │┗━┛┗━╸ ╹ ┗━┛╹  │
+    // └───────────────┘
 
     function setUp() external {
         deployment = new Deployment();
-        (janusLottery, chainAdapter) = deployment.run();
+        (janusLottery, helperConfig) = deployment.run();
         vm.deal(PLAYER, STARTING_USER_BALANCE);
     }
 
     uint256 private constant MINIMUM_VALUE = 1 gwei;
     uint16 private constant MINIMUM_TICKETS = 1;
 
-// ┌──────────────────────────────────────────────────────┐
-// │┏┳┓╻┏┓╻╻┏┳┓╻ ╻┏┳┓   ┏━┓┏━╸┏━┓╻ ╻╻┏━┓┏━╸┏┳┓┏━╸┏┓╻╺┳╸┏━┓│
-// │┃┃┃┃┃┗┫┃┃┃┃┃ ┃┃┃┃   ┣┳┛┣╸ ┃┓┃┃ ┃┃┣┳┛┣╸ ┃┃┃┣╸ ┃┗┫ ┃ ┗━┓│
-// │╹ ╹╹╹ ╹╹╹ ╹┗━┛╹ ╹   ╹┗╸┗━╸┗┻┛┗━┛╹╹┗╸┗━╸╹ ╹┗━╸╹ ╹ ╹ ┗━┛│
-// └──────────────────────────────────────────────────────┘
+    // ┌──────────────────────────────────────────────────────┐
+    // │┏┳┓╻┏┓╻╻┏┳┓╻ ╻┏┳┓   ┏━┓┏━╸┏━┓╻ ╻╻┏━┓┏━╸┏┳┓┏━╸┏┓╻╺┳╸┏━┓│
+    // │┃┃┃┃┃┗┫┃┃┃┃┃ ┃┃┃┃   ┣┳┛┣╸ ┃┓┃┃ ┃┃┣┳┛┣╸ ┃┃┃┣╸ ┃┗┫ ┃ ┗━┓│
+    // │╹ ╹╹╹ ╹╹╹ ╹┗━┛╹ ╹   ╹┗╸┗━╸┗┻┛┗━┛╹╹┗╸┗━╸╹ ╹┗━╸╹ ╹ ╹ ┗━┛│
+    // └──────────────────────────────────────────────────────┘
     function testJackpotTooSmallForJackpot() public {
         uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT() - 1 gwei;
         vm.expectRevert(JanusLottery.JanusLottery__JackpotTooSmall.selector);
-        janusLottery.jackPotOffer{value: jackpotValue}(
-            MINIMUM_VALUE, 
-            MINIMUM_TICKETS, 
-            sellingPeriod);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
     }
 
     function testProtectForwarderUnauthorized() public {
@@ -84,50 +78,37 @@ contract JackpotOfferTest is Test {
         janusLottery.setAutomationForwarder(address(0x123));
     }
 
-    function testProtectForwarderAuthorized() public {        
+    function testProtectForwarderAuthorized() public {
         vm.prank(janusLottery.getOwner());
         janusLottery.setAutomationForwarder(address(0x123));
     }
-
 
     function testTicketSellingPeriodTooShortForJackpot() public {
         uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS() - 1;
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         vm.expectRevert(JanusLottery.JanusLottery__TicketSellingPeriodTooShort.selector);
-        janusLottery.jackPotOffer{value: jackpotValue}(
-            MINIMUM_VALUE, 
-            MINIMUM_TICKETS, 
-            sellingPeriod);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
     }
 
     function testTicketSellingPeriodTooLongForJackpot() public {
         uint16 sellingPeriod = deployment.MAXIMUM_SELLING_PERIOD_HOURS() + 1;
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         vm.expectRevert(JanusLottery.JanusLottery__TicketSellingPeriodTooLong.selector);
-        janusLottery.jackPotOffer{value: jackpotValue}(
-            MINIMUM_VALUE, 
-            MINIMUM_TICKETS, 
-            sellingPeriod);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
     }
 
     function testMaximumTicketsTooSmallForJackpot() public {
         uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         vm.expectRevert(JanusLottery.JanusLottery__MaximumTicketsTooSmall.selector);
-        janusLottery.jackPotOffer{value: jackpotValue}(
-            MINIMUM_VALUE, 
-            MINIMUM_TICKETS - 1, 
-            sellingPeriod);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS - 1, sellingPeriod);
     }
 
     function testInvalidTicketPriceForJackpot() public {
         uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         vm.expectRevert(JanusLottery.JanusLottery__InvalidTicketPrice.selector);
-        janusLottery.jackPotOffer{value: jackpotValue}(
-            0, 
-            MINIMUM_TICKETS, 
-            sellingPeriod);        
+        janusLottery.jackPotOffer{value: jackpotValue}(0, MINIMUM_TICKETS, sellingPeriod);
     }
 
     function testCorrectJackpotOffer() public {
@@ -135,7 +116,9 @@ contract JackpotOfferTest is Test {
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(address(this), jackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
+        emit JanusLottery.JackPotOfferAccepted(
+            address(this), jackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod
+        );
 
         janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
@@ -147,19 +130,17 @@ contract JackpotOfferTest is Test {
         assert(janusLottery.isFunding());
     }
 
-
     function testBuyTicketInJackofferState() public {
         vm.expectRevert(JanusLottery.JanusLottery__NotSellingTickets.selector);
         janusLottery.buyTicket{value: MINIMUM_VALUE}();
         assert(janusLottery.isFunding());
     }
 
-
-// ┌────────────────────────────────────┐
-// │╻ ╻┏━┓┏━┓┏━┓┏━╸   ┏━┓┏━╸┏━╸┏━╸┏━┓┏━┓│
-// │┃╻┃┃ ┃┣┳┛┗━┓┣╸    ┃ ┃┣╸ ┣╸ ┣╸ ┣┳┛┗━┓│
-// │┗┻┛┗━┛╹┗╸┗━┛┗━╸   ┗━┛╹  ╹  ┗━╸╹┗╸┗━┛│
-// └────────────────────────────────────┘
+    // ┌────────────────────────────────────┐
+    // │╻ ╻┏━┓┏━┓┏━┓┏━╸   ┏━┓┏━╸┏━╸┏━╸┏━┓┏━┓│
+    // │┃╻┃┃ ┃┣┳┛┗━┓┣╸    ┃ ┃┣╸ ┣╸ ┣╸ ┣┳┛┗━┓│
+    // │┗┻┛┗━┛╹┗╸┗━┛┗━╸   ┗━┛╹  ╹  ┗━╸╹┗╸┗━┛│
+    // └────────────────────────────────────┘
 
     function testRejectSameJackpotOffer() public {
         uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
@@ -176,7 +157,7 @@ contract JackpotOfferTest is Test {
         uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
 
-        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod+1);
+        janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod + 1);
 
         vm.expectRevert(JanusLottery.JanusLottery__OfferRejected.selector);
 
@@ -190,7 +171,7 @@ contract JackpotOfferTest is Test {
         janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
         vm.expectRevert(JanusLottery.JanusLottery__OfferRejected.selector);
-  
+
         janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE + 1, MINIMUM_TICKETS, sellingPeriod);
     }
 
@@ -201,15 +182,15 @@ contract JackpotOfferTest is Test {
         janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
 
         vm.expectRevert(JanusLottery.JanusLottery__OfferRejected.selector);
-  
+
         janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS + 1, sellingPeriod);
     }
 
-// ┌───────────────────────────────────────────────────┐
-// │┏┓ ┏━╸╺┳╸╺┳╸┏━╸┏━┓   ┏━┓┏━╸┏━╸┏━╸┏━┓┏━┓            │
-// │┣┻┓┣╸  ┃  ┃ ┣╸ ┣┳┛   ┃ ┃┣╸ ┣╸ ┣╸ ┣┳┛┗━┓            │
-// │┗━┛┗━╸ ╹  ╹ ┗━╸╹┗╸   ┗━┛╹  ╹  ┗━╸╹┗╸┗━┛            │
-// └───────────────────────────────────────────────────┘
+    // ┌───────────────────────────────────────────────────┐
+    // │┏┓ ┏━╸╺┳╸╺┳╸┏━╸┏━┓   ┏━┓┏━╸┏━╸┏━╸┏━┓┏━┓            │
+    // │┣┻┓┣╸  ┃  ┃ ┣╸ ┣┳┛   ┃ ┃┣╸ ┣╸ ┣╸ ┣┳┛┗━┓            │
+    // │┗━┛┗━╸ ╹  ╹ ┗━╸╹┗╸   ┗━┛╹  ╹  ┗━╸╹┗╸┗━┛            │
+    // └───────────────────────────────────────────────────┘
 
     function testAcceptBiggerJackpotOffer() public {
         uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
@@ -223,7 +204,9 @@ contract JackpotOfferTest is Test {
         vm.deal(second_funder, 3 ether);
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(first_funder, firstJackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
+        emit JanusLottery.JackPotOfferAccepted(
+            first_funder, firstJackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod
+        );
 
         vm.prank(first_funder);
         janusLottery.jackPotOffer{value: firstJackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
@@ -232,7 +215,9 @@ contract JackpotOfferTest is Test {
         assertEq(address(janusLottery).balance, firstJackpotValue);
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(second_funder, secondJackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
+        emit JanusLottery.JackPotOfferAccepted(
+            second_funder, secondJackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod
+        );
 
         vm.prank(second_funder);
         janusLottery.jackPotOffer{value: secondJackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, sellingPeriod);
@@ -247,9 +232,9 @@ contract JackpotOfferTest is Test {
 
     function testAcceptLongerJackpotOffer() public {
         uint16 firstSellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
-        uint16 secondSellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS()+1;
+        uint16 secondSellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS() + 1;
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
-        
+
         address first_funder = address(0x1);
         address second_funder = address(0x2);
 
@@ -257,7 +242,9 @@ contract JackpotOfferTest is Test {
         vm.deal(second_funder, 3 ether);
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(first_funder, jackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, firstSellingPeriod);
+        emit JanusLottery.JackPotOfferAccepted(
+            first_funder, jackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, firstSellingPeriod
+        );
 
         vm.prank(first_funder);
         janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, firstSellingPeriod);
@@ -266,7 +253,9 @@ contract JackpotOfferTest is Test {
         assertEq(address(janusLottery).balance, jackpotValue);
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(second_funder,jackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, secondSellingPeriod);
+        emit JanusLottery.JackPotOfferAccepted(
+            second_funder, jackpotValue, MINIMUM_VALUE, MINIMUM_TICKETS, secondSellingPeriod
+        );
 
         vm.prank(second_funder);
         janusLottery.jackPotOffer{value: jackpotValue}(MINIMUM_VALUE, MINIMUM_TICKETS, secondSellingPeriod);
@@ -284,7 +273,7 @@ contract JackpotOfferTest is Test {
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         uint256 firstTicketPrice = MINIMUM_VALUE + 1 gwei;
         uint256 secondTicketPrice = MINIMUM_VALUE;
-        
+
         address first_funder = address(0x1);
         address second_funder = address(0x2);
 
@@ -292,7 +281,9 @@ contract JackpotOfferTest is Test {
         vm.deal(second_funder, 3 ether);
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(first_funder, jackpotValue, firstTicketPrice, MINIMUM_TICKETS, sellingPeriod);
+        emit JanusLottery.JackPotOfferAccepted(
+            first_funder, jackpotValue, firstTicketPrice, MINIMUM_TICKETS, sellingPeriod
+        );
 
         vm.prank(first_funder);
         janusLottery.jackPotOffer{value: jackpotValue}(firstTicketPrice, MINIMUM_TICKETS, sellingPeriod);
@@ -301,7 +292,9 @@ contract JackpotOfferTest is Test {
         assertEq(address(janusLottery).balance, jackpotValue);
 
         vm.expectEmit(true, false, false, true);
-        emit JanusLottery.JackPotOfferAccepted(second_funder, jackpotValue, secondTicketPrice, MINIMUM_TICKETS, sellingPeriod);
+        emit JanusLottery.JackPotOfferAccepted(
+            second_funder, jackpotValue, secondTicketPrice, MINIMUM_TICKETS, sellingPeriod
+        );
 
         vm.prank(second_funder);
         janusLottery.jackPotOffer{value: jackpotValue}(secondTicketPrice, MINIMUM_TICKETS, sellingPeriod);
@@ -320,7 +313,7 @@ contract JackpotOfferTest is Test {
         uint256 ticketPrice = MINIMUM_VALUE;
         uint32 firstTickets = MINIMUM_TICKETS + 1;
         uint32 secondTickets = MINIMUM_TICKETS;
-        
+
         address first_funder = address(0x1);
         address second_funder = address(0x2);
 
@@ -349,17 +342,16 @@ contract JackpotOfferTest is Test {
         assertEq(janusLottery.getFunder(), second_funder);
         assertEq(janusLottery.getJackpot(), jackpotValue);
 
-        assertEq(janusLottery.getTimeLeftFunding(),(uint256)(deployment.FUNDING_PERIOD_HOURS())*60*60);
+        assertEq(janusLottery.getTimeLeftFunding(), (uint256)(deployment.FUNDING_PERIOD_HOURS()) * 60 * 60);
     }
 
-// ┌────────────────────────────────────────────────────────────────┐
-// │┏━╸╻  ┏━┓┏━┓╻┏┓╻┏━╸   ┏━┓┏━╸   ┏━┓┏━╸┏━╸┏━╸┏━┓   ┏━┓╻ ╻┏━┓┏━┓┏━╸│
-// │┃  ┃  ┃ ┃┗━┓┃┃┗┫┃╺┓   ┃ ┃┣╸    ┃ ┃┣╸ ┣╸ ┣╸ ┣┳┛   ┣━┛┣━┫┣━┫┗━┓┣╸ │
-// │┗━╸┗━╸┗━┛┗━┛╹╹ ╹┗━┛   ┗━┛╹     ┗━┛╹  ╹  ┗━╸╹┗╸   ╹  ╹ ╹╹ ╹┗━┛┗━╸│
-// └────────────────────────────────────────────────────────────────┘
+    // ┌────────────────────────────────────────────────────────────────┐
+    // │┏━╸╻  ┏━┓┏━┓╻┏┓╻┏━╸   ┏━┓┏━╸   ┏━┓┏━╸┏━╸┏━╸┏━┓   ┏━┓╻ ╻┏━┓┏━┓┏━╸│
+    // │┃  ┃  ┃ ┃┗━┓┃┃┗┫┃╺┓   ┃ ┃┣╸    ┃ ┃┣╸ ┣╸ ┣╸ ┣┳┛   ┣━┛┣━┫┣━┫┗━┓┣╸ │
+    // │┗━╸┗━╸┗━┛┗━┛╹╹ ╹┗━┛   ┗━┛╹     ┗━┛╹  ╹  ┗━╸╹┗╸   ╹  ╹ ╹╹ ╹┗━┛┗━╸│
+    // └────────────────────────────────────────────────────────────────┘
 
     function testJustNotClosingOfferPhase() public {
-
         uint32 fundingHours = deployment.FUNDING_PERIOD_HOURS() - 1;
 
         vm.warp(block.timestamp + (fundingHours * 60 * 60));
@@ -373,9 +365,8 @@ contract JackpotOfferTest is Test {
     }
 
     function testJustClosingOfferPhaseWithoutJackpot() public {
-
         uint32 fundingHours = deployment.FUNDING_PERIOD_HOURS();
-        
+
         vm.warp(block.timestamp + (fundingHours * 60 * 60));
         vm.roll(block.number + 1);
 
@@ -394,17 +385,14 @@ contract JackpotOfferTest is Test {
 
         // Assert
         assert(!upkeepNeeded);
-
-    }    
+    }
 
     function testJustClosingOfferPhaseWithJackpot() public {
-
         uint32 fundingHours = deployment.FUNDING_PERIOD_HOURS();
         uint256 jackpotValue = deployment.MINIMUM_JACKPOT();
         uint16 sellingPeriod = deployment.MINIMUM_SELLING_PERIOD_HOURS();
         uint256 ticketPrice = MINIMUM_VALUE;
         uint32 tickets = MINIMUM_TICKETS + 1;
-        
 
         address first_funder = address(0x1);
         vm.deal(first_funder, 2 ether);
@@ -430,6 +418,5 @@ contract JackpotOfferTest is Test {
 
         // Assert
         assert(!upkeepNeeded);
-        
-    }    
+    }
 }
